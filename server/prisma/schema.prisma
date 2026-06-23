@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String      @id @default(uuid())
+  name       String
+  email      String?     @unique
+  password   String?
+  registerNumber String? @unique
+  year       Int?
+  role       String      // STUDENT, ADMIN, STAFF
+  department String?
+  complaints Complaint[]
+}
+
+model Location {
+  id       String     @id // e.g. BLOCK_A, DEPT_CSE, LAB_204
+  name     String
+  type     String     // BLOCK, DEPARTMENT, LAB, CLASSROOM
+  parentId String?
+  parent   Location?  @relation("LocationHierarchy", fields: [parentId], references: [id])
+  children Location[] @relation("LocationHierarchy")
+  assets   Asset[]
+  x        Float?     // Coordinates for Digital Twin Map
+  y        Float?
+}
+
+model Asset {
+  id                        String             @id
+  name                      String
+  type                      String             // HVAC, IT, ELECTRICAL, PLUMBING
+  locationId                String
+  location                  Location           @relation(fields: [locationId], references: [id])
+  status                    String             // HEALTHY, WARNING, CRITICAL
+  
+  // Complaint DNA Enhancements
+  reliabilityScore          Float
+  failureCount              Int                @default(0)
+  lastFailureDate           DateTime?
+  maintenanceCostEstimate   Float              @default(0)
+  replacementRecommendation Boolean            @default(false)
+  
+  maintenanceLogs           MaintenanceLog[]
+  complaints                Complaint[]
+  dependencies              AssetDependency[]  @relation("DependentOn")
+  dependentOn               AssetDependency[]  @relation("DependencyOf")
+}
+
+model AssetDependency {
+  id              String @id @default(uuid())
+  assetId         String
+  dependentOnId   String
+  asset           Asset  @relation("DependentOn", fields: [assetId], references: [id])
+  dependentOnAsset Asset @relation("DependencyOf", fields: [dependentOnId], references: [id])
+}
+
+model Complaint {
+  id            String          @id @default(uuid())
+  title         String
+  description   String
+  category      String          @default("INFRASTRUCTURE")
+  priority      String          @default("MEDIUM")
+  status        String          // OPEN, IN_PROGRESS, RESOLVED
+  imageUrl      String?
+  userId        String
+  user          User            @relation(fields: [userId], references: [id])
+  assetId       String?
+  asset         Asset?          @relation(fields: [assetId], references: [id])
+  clusterId     String?
+  cluster       ProblemCluster? @relation(fields: [clusterId], references: [id])
+  createdAt     DateTime        @default(now())
+  resolvedAt    DateTime?
+  resolutionNote String?
+  resolutionImageUrl String?
+  checklist     String?
+  escalationLevel String @default("NONE") // NONE, DEPT_ADMIN, HEAD, PRINCIPAL
+}
+
+model ProblemCluster {
+  id                       String      @id @default(uuid())
+  rootCauseId              String?
+  confidence               Float       // Root Cause Confidence Score
+  status                   String      // ACTIVE, RESOLVED
+  complaints               Complaint[]
+  
+  // Ripple Impact Predictor Enhancements
+  affectedStudentsCount    Int         @default(0)
+  affectedLocationsCount   Int         @default(0)
+  affectedServicesCount    Int         @default(0)
+  impactSeverityScore      Float       @default(0) // 0 to 10
+  estimatedDisruptionLevel String      // LOW, MEDIUM, HIGH, CRITICAL
+
+  createdAt                DateTime    @default(now())
+  resolvedAt               DateTime?
+}
+
+model MaintenanceLog {
+  id          String   @id @default(uuid())
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id])
+  date        DateTime @default(now())
+  action      String   // REPAIRED, REPLACED, INSPECTED
+  cost        Float    @default(0)
+  notes       String?
+}
