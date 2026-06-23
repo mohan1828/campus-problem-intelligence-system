@@ -1,5 +1,5 @@
 services:
-  # Backend
+  # Backend API
   - type: web
     name: campus-intelligence-api
     env: node
@@ -7,14 +7,9 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm start
 
-    disk:
-      name: sqlite-data
-      mountPath: /data
-      sizeGB: 1
-
     envVars:
       - key: DATABASE_URL
-        value: file:/data/sqlite.db
+        value: file:./dev.db
 
       - key: PORT
         value: "3001"
