@@ -2,7 +2,7 @@
   "compilerOptions": {
     "types": ["node"],
     "target": "es2022",
-    "module": "commonjs",
+    "module": "node16",
     "rootDir": "./",
     "outDir": "./dist",
     "esModuleInterop": true,
