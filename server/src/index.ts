@@ -15,66 +15,8 @@ const PORT = process.env.PORT || 3001;
 app.get('/', (req, res) => {
   res.send('Campus Intelligence API is running successfully!');
 });
-async function seedDemoUsers() {
-  try {
-    const adminPass = await bcrypt.hash('admin123', 10);
-    const studentPass = await bcrypt.hash('password123', 10);
-    const netPass = await bcrypt.hash('net123', 10);
-    const elecPass = await bcrypt.hash('elec123', 10);
 
-    const existingStudent = await prisma.user.findUnique({
-      where: {
-        registerNumber: 'CS24B1012'
-      }
-    });
-
-    if (!existingStudent) {
-      await prisma.user.createMany({
-        data: [
-          {
-            name: 'admin',
-            email: 'admin@campus.com',
-            registerNumber: 'ADMIN-01',
-            password: adminPass,
-            role: 'ADMIN',
-            department: 'CSE'
-          },
-          {
-            name: 'Student User',
-            email: 'student@campus.com',
-            registerNumber: 'CS24B1012',
-            password: studentPass,
-            role: 'STUDENT',
-            department: 'CSE',
-            year: 2
-          },
-          {
-            name: 'Network Staff',
-            email: 'netstaff01@campus.com',
-            registerNumber: 'STAFF-NET-01',
-            password: netPass,
-            role: 'STAFF',
-            department: 'NETWORK'
-          },
-          {
-            name: 'Electrical Staff',
-            email: 'elecstaff01@campus.com',
-            registerNumber: 'STAFF-ELEC-01',
-            password: elecPass,
-            role: 'STAFF',
-            department: 'ELECTRICAL'
-          }
-        ]
-      });
-      console.log('Demo users seeded successfully.');
-    }
-  } catch (err) {
-    console.error('Error seeding demo users:', err);
-  }
-}
-
-// Seed on startup
-seedDemoUsers();
+// Users
 app.get('/api/users', async (req, res) => {
   try {
     const users = await prisma.user.findMany();
@@ -116,51 +58,227 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-app.get('/api/campus-map', async (req, res) => {
-  try {
-    const locations = await prisma.location.findMany();
-    res.json(locations);
-  } catch (error) {
-    res.status(500).json([]);
-  }
+// Assets & Locations
+app.get('/api/locations', async (req, res) => {
+  const locs = await prisma.location.findMany({ include: { assets: true } });
+  res.json(locs);
 });
 
 app.get('/api/assets', async (req, res) => {
-  try {
-    const assets = await prisma.asset.findMany();
-    res.json(assets);
-  } catch (error) {
-    res.status(500).json([]);
-  }
+  const assets = await prisma.asset.findMany({ include: { location: true } });
+  res.json(assets);
 });
 
+// Complaints
 app.get('/api/complaints', async (req, res) => {
-  try {
-    const complaints = await prisma.complaint.findMany();
-    res.json(complaints);
-  } catch (error) {
-    res.status(500).json([]);
-  }
+  const userReq = (req as any).user;
+  const whereClause = userReq?.role === 'STUDENT' ? { userId: userReq.id } : {};
+
+  const complaints = await prisma.complaint.findMany({
+    where: whereClause,
+    include: { user: { select: { id: true, role: true, department: true, registerNumber: true, year: true, name: true } }, asset: { include: { location: true } }, cluster: true },
+    orderBy: { createdAt: 'desc' }
+  });
+  res.json(complaints);
 });
 
-app.get('/api/clusters', async (req, res) => {
-  try {
-    const clusters = await prisma.problemCluster.findMany();
-    res.json(clusters);
-  } catch (error) {
-    res.status(500).json([]);
-  }
+app.get('/api/complaints/:id', async (req, res) => {
+  const complaint = await prisma.complaint.findUnique({
+    where: { id: req.params.id },
+    include: { user: { select: { id: true, role: true, department: true, registerNumber: true, year: true, name: true } }, asset: { include: { location: true, dependentOn: { include: { dependentOnAsset: true } } } }, cluster: true },
+  });
+  res.json(complaint);
 });
 
-app.get('/api/analytics', async (req, res) => {
+app.post('/api/complaints/analyze', async (req, res) => {
+  const { text } = req.body;
+  if (!text) return res.json({ assets: [], category: null, similar: [] });
+  
+  const t = text.toLowerCase();
+  let category = 'INFRASTRUCTURE';
+  if (t.includes('wifi') || t.includes('network') || t.includes('internet')) category = 'NETWORK';
+  if (t.includes('power') || t.includes('electricity') || t.includes('fan')) category = 'ELECTRICAL';
+  if (t.includes('projector') || t.includes('board') || t.includes('audio')) category = 'AV';
+
+  // Find assets
+  const assets = await prisma.asset.findMany();
+  const matchedAssets = assets.filter(a => t.includes(a.type.toLowerCase()) || t.includes(a.name.toLowerCase())).slice(0,3);
+
+  // Similar complaints
+  const similar = await prisma.complaint.findMany({
+    where: { category },
+    take: 3
+  });
+
   res.json({
-    totalComplaints: 0,
-    resolvedComplaints: 0,
-    activeClusters: 0,
-    criticalAssets: 0
+    category,
+    assets: matchedAssets,
+    similar,
+    potentialRootCause: matchedAssets.length > 0 ? 'Possible upstream switch or breaker failure.' : null
+  });
+});
+
+app.post('/api/complaints', async (req, res) => {
+  const { title, description, category, priority, assetId, imageUrl, userId } = req.body;
+  
+  const complaint = await prisma.complaint.create({
+    data: {
+      title, description, category, priority, imageUrl,
+      status: 'OPEN',
+      userId: userId,
+      assetId: assetId || null
+    }
+  });
+
+  if (assetId) {
+    await prisma.asset.update({
+      where: { id: assetId },
+      data: { status: priority === 'CRITICAL' || priority === 'HIGH' ? 'CRITICAL' : 'WARNING', failureCount: { increment: 1 }, lastFailureDate: new Date() }
+    });
+
+    const asset = await prisma.asset.findUnique({ where: { id: assetId }, include: { dependentOn: true } });
+    if (asset && asset.dependentOn.length > 0) {
+      const rootAssetId = asset.dependentOn[0].dependentOnId;
+      
+      let cluster = await prisma.problemCluster.findFirst({
+        where: { rootCauseId: rootAssetId, status: 'ACTIVE' }
+      });
+
+      if (!cluster) {
+        cluster = await prisma.problemCluster.create({
+          data: {
+            rootCauseId: rootAssetId, confidence: 92.5, status: 'ACTIVE',
+            affectedStudentsCount: Math.floor(Math.random() * 200) + 100,
+            affectedLocationsCount: 2, affectedServicesCount: 3,
+            impactSeverityScore: priority === 'CRITICAL' ? 9.2 : 7.0,
+            estimatedDisruptionLevel: priority === 'CRITICAL' ? 'HIGH' : 'MEDIUM'
+          }
+        });
+      }
+
+      await prisma.complaint.update({
+        where: { id: complaint.id },
+        data: { clusterId: cluster.id }
+      });
+    }
+  }
+
+  res.json(complaint);
+});
+
+app.put('/api/complaints/:id', async (req, res) => {
+  const { status, resolutionNote, resolutionImageUrl, checklist } = req.body;
+  
+  const data: any = {};
+  if (status) data.status = status;
+  if (checklist) data.checklist = checklist;
+  if (status === 'RESOLVED') {
+    data.resolvedAt = new Date();
+    data.resolutionNote = resolutionNote;
+    if (resolutionImageUrl) data.resolutionImageUrl = resolutionImageUrl;
+  }
+
+  const complaint = await prisma.complaint.update({
+    where: { id: req.params.id },
+    data,
+    include: { asset: true, cluster: { include: { complaints: true } } }
+  });
+
+  if (status === 'RESOLVED' && complaint.assetId) {
+    const openComplaints = await prisma.complaint.count({
+      where: { assetId: complaint.assetId, status: { not: 'RESOLVED' } }
+    });
+
+    if (openComplaints === 0) {
+      await prisma.asset.update({
+        where: { id: complaint.assetId },
+        data: { status: 'HEALTHY' }
+      });
+    }
+
+    await prisma.maintenanceLog.create({
+      data: {
+        assetId: complaint.assetId,
+        action: 'REPAIRED',
+        notes: resolutionNote || 'Resolved via complaint portal',
+        date: new Date()
+      }
+    });
+
+    if (complaint.clusterId) {
+      const openClusterComplaints = await prisma.complaint.count({
+        where: { clusterId: complaint.clusterId, status: { not: 'RESOLVED' } }
+      });
+      if (openClusterComplaints === 0) {
+        await prisma.problemCluster.update({
+          where: { id: complaint.clusterId },
+          data: { status: 'RESOLVED', resolvedAt: new Date() }
+        });
+      }
+    }
+  }
+
+  res.json(complaint);
+});
+
+// Get Digital Twin map data
+app.get('/api/campus-map', async (req, res) => {
+  const locations = await prisma.location.findMany({ include: { assets: true } });
+  res.json(locations);
+});
+
+// Clusters
+app.get('/api/clusters', async (req, res) => {
+  const clusters = await prisma.problemCluster.findMany({
+    include: { complaints: { include: { asset: { include: { location: true } } } } },
+    orderBy: { impactSeverityScore: 'desc' }
+  });
+  res.json(clusters);
+});
+
+// Asset DNA
+app.get('/api/assets/:id/dna', async (req, res) => {
+  const asset = await prisma.asset.findUnique({
+    where: { id: req.params.id },
+    include: {
+      maintenanceLogs: { orderBy: { date: 'desc' } },
+      complaints: { orderBy: { createdAt: 'desc' } },
+      dependencies: { include: { dependentOnAsset: true } },
+      dependentOn: { include: { asset: true } },
+      location: true
+    }
+  });
+  if (!asset) return res.status(404).json({ error: 'Not found' });
+  res.json(asset);
+});
+
+// Analytics
+app.get('/api/analytics', async (req, res) => {
+  const complaints = await prisma.complaint.findMany({ include: { user: true, asset: { include: { location: true } } } });
+  
+  const byCategory = complaints.reduce((acc: any, c) => {
+    acc[c.category] = (acc[c.category] || 0) + 1;
+    return acc;
+  }, {});
+
+  const byDepartment = complaints.reduce((acc: any, c) => {
+    const dept = c.user?.department || 'Unknown';
+    acc[dept] = (acc[dept] || 0) + 1;
+    return acc;
+  }, {});
+
+  const byStatus = complaints.reduce((acc: any, c) => {
+    acc[c.status] = (acc[c.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  res.json({
+    byCategory: Object.keys(byCategory).map(k => ({ name: k, value: byCategory[k] })),
+    byDepartment: Object.keys(byDepartment).map(k => ({ name: k, value: byDepartment[k] })),
+    byStatus: Object.keys(byStatus).map(k => ({ name: k, value: byStatus[k] }))
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
