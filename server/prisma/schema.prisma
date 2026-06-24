@@ -3,12 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id         String      @id @default(uuid())
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
   name       String
   email      String?     @unique
   password   String?
@@ -20,11 +20,11 @@ model User {
 }
 
 model Location {
-  id       String     @id // e.g. BLOCK_A, DEPT_CSE, LAB_204
+  id       String     @id @default(auto()) @map("_id") @db.ObjectId // e.g. BLOCK_A, DEPT_CSE, LAB_204
   name     String
   type     String     // BLOCK, DEPARTMENT, LAB, CLASSROOM
-  parentId String?
-  parent   Location?  @relation("LocationHierarchy", fields: [parentId], references: [id])
+  parentId String?    @db.ObjectId
+  parent   Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children Location[] @relation("LocationHierarchy")
   assets   Asset[]
   x        Float?     // Coordinates for Digital Twin Map
@@ -32,10 +32,10 @@ model Location {
 }
 
 model Asset {
-  id                        String             @id
+  id                        String             @id @default(auto()) @map("_id") @db.ObjectId
   name                      String
   type                      String             // HVAC, IT, ELECTRICAL, PLUMBING
-  locationId                String
+  locationId                String             @db.ObjectId
   location                  Location           @relation(fields: [locationId], references: [id])
   status                    String             // HEALTHY, WARNING, CRITICAL
   
@@ -53,26 +53,27 @@ model Asset {
 }
 
 model AssetDependency {
-  id              String @id @default(uuid())
-  assetId         String
-  dependentOnId   String
-  asset           Asset  @relation("DependentOn", fields: [assetId], references: [id])
-  dependentOnAsset Asset @relation("DependencyOf", fields: [dependentOnId], references: [id])
+  id              String @id @default(auto()) @map("_id") @db.ObjectId
+  assetId         String @db.ObjectId
+  dependentOnId   String @db.ObjectId
+  asset           Asset  @relation("DependentOn", fields: [assetId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  dependentOnAsset Asset @relation("DependencyOf", fields: [dependentOnId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model Complaint {
-  id            String          @id @default(uuid())
+  id            String          @id @default(auto()) @map("_id") @db.ObjectId
   title         String
   description   String
   category      String          @default("INFRASTRUCTURE")
   priority      String          @default("MEDIUM")
   status        String          // OPEN, IN_PROGRESS, RESOLVED
   imageUrl      String?
-  userId        String
+  userId        String          @db.ObjectId
   user          User            @relation(fields: [userId], references: [id])
-  assetId       String?
+  assetId       String?         @db.ObjectId
   asset         Asset?          @relation(fields: [assetId], references: [id])
-  clusterId     String?
+  clusterId     String?         @db.ObjectId
   cluster       ProblemCluster? @relation(fields: [clusterId], references: [id])
   createdAt     DateTime        @default(now())
   resolvedAt    DateTime?
@@ -83,8 +84,8 @@ model Complaint {
 }
 
 model ProblemCluster {
-  id                       String      @id @default(uuid())
-  rootCauseId              String?
+  id                       String      @id @default(auto()) @map("_id") @db.ObjectId
+  rootCauseId              String?     @db.ObjectId
   confidence               Float       // Root Cause Confidence Score
   status                   String      // ACTIVE, RESOLVED
   complaints               Complaint[]
@@ -101,8 +102,8 @@ model ProblemCluster {
 }
 
 model MaintenanceLog {
-  id          String   @id @default(uuid())
-  assetId     String
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  assetId     String   @db.ObjectId
   asset       Asset    @relation(fields: [assetId], references: [id])
   date        DateTime @default(now())
   action      String   // REPAIRED, REPLACED, INSPECTED
