@@ -15,6 +15,13 @@ app.get('/api/create-demo-users', async (req, res) => {
   const netPass = await bcrypt.hash('net123', 10);
   const elecPass = await bcrypt.hash('elec123', 10);
 
+  const existingStudent = await prisma.user.findUnique({
+  where: {
+    registerNumber: 'CS24B1012'
+  }
+});
+
+if (!existingStudent) {
   await prisma.user.createMany({
     data: [
       {
@@ -46,9 +53,9 @@ app.get('/api/create-demo-users', async (req, res) => {
         role: 'STAFF',
         department: 'ELECTRICAL'
       }
-    ],
-
+    ]
   });
+}
 
   res.json({ message: 'Demo users created' });
 });
