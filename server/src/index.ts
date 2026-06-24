@@ -11,6 +11,10 @@ app.use(cors());
 app.use(express.json());
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
+
+app.get('/', (req, res) => {
+  res.send('Campus Intelligence API is running successfully!');
+});
 async function seedDemoUsers() {
   try {
     const adminPass = await bcrypt.hash('admin123', 10);
