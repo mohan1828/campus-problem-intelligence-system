@@ -10,10 +10,10 @@ function cn(...inputs: ClassValue[]) {
 
 const ADMIN_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/twin', label: 'Digital Twin', icon: Map },
-  { path: '/clusters', label: 'Problem Clusters', icon: Network },
-  { path: '/dna', label: 'Complaint DNA', icon: Fingerprint },
-  { path: '/impact', label: 'Ripple Impact', icon: Waves },
+  { path: '/twin', label: 'Campus Map', icon: Map },
+  { path: '/clusters', label: 'Problem Groups', icon: Network },
+  { path: '/dna', label: 'Root Cause Analysis', icon: Fingerprint },
+  { path: '/impact', label: 'Impact Prediction', icon: Waves },
   { path: '/analytics', label: 'Analytics', icon: BarChart },
 ];
 
