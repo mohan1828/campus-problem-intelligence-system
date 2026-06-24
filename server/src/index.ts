@@ -47,7 +47,7 @@ app.get('/api/create-demo-users', async (req, res) => {
         department: 'ELECTRICAL'
       }
     ],
-    skipDuplicates: true
+
   });
 
   res.json({ message: 'Demo users created' });
