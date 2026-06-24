@@ -52,3 +52,6 @@ app.get('/api/create-demo-users', async (req, res) => {
 
   res.json({ message: 'Demo users created' });
 });
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
