@@ -83,28 +83,35 @@ async function main() {
   const aFan = 'c30000000000000000000005';
   const aAttnd = 'c30000000000000000000006';
 
-  await prisma.asset.create({
-    data: { id: aRouter, name: 'Core Router Alpha', type: 'NETWORK', locationId: lServerRoom, status: 'HEALTHY', reliabilityScore: 98.0, failureCount: 1, maintenanceCostEstimate: 500 }
-  });
-
-  await prisma.asset.create({
-    data: { id: aSwitch, name: 'Block A Main Switch', type: 'NETWORK', locationId: lBlockA, status: 'CRITICAL', reliabilityScore: 45.0, failureCount: 6, replacementRecommendation: true, maintenanceCostEstimate: 1200, lastFailureDate: new Date() }
-  });
-
-  await prisma.asset.create({
-    data: { id: aWifi, name: 'CSE Lab 1 WiFi AP', type: 'NETWORK', locationId: lCseLabs, status: 'CRITICAL', reliabilityScore: 55.0, failureCount: 4 }
-  });
-
-  await prisma.asset.create({
-    data: { id: aProj, name: 'Block B Smart Board', type: 'AV', locationId: lBlockB, status: 'HEALTHY', reliabilityScore: 88.0, failureCount: 1 }
-  });
-
-  await prisma.asset.create({
-    data: { id: aFan, name: 'CSE Lab Ceiling Fan', type: 'ELECTRICAL', locationId: lCseLabs, status: 'WARNING', reliabilityScore: 60.0, failureCount: 6, maintenanceCostEstimate: 50, replacementRecommendation: true }
-  });
-
-  await prisma.asset.create({
-    data: { id: aAttnd, name: 'Block A Biometric', type: 'NETWORK', locationId: lBlockA, status: 'CRITICAL', reliabilityScore: 65.0, failureCount: 2 }
+  await prisma.asset.createMany({
+    data: [
+      { id: aRouter, name: 'Core Router Alpha', type: 'NETWORK', locationId: lServerRoom, status: 'HEALTHY', reliabilityScore: 98.0, failureCount: 1, maintenanceCostEstimate: 500 },
+      { id: aSwitch, name: 'Block A Main Switch', type: 'NETWORK', locationId: lBlockA, status: 'CRITICAL', reliabilityScore: 42.0, failureCount: 6, replacementRecommendation: true, maintenanceCostEstimate: 1200, lastFailureDate: new Date() },
+      { id: aWifi, name: 'CSE Lab 1 WiFi AP', type: 'NETWORK', locationId: lCseLabs, status: 'WARNING', reliabilityScore: 68.0, failureCount: 4 },
+      { id: aProj, name: 'Block B Smart Board', type: 'AV', locationId: lBlockB, status: 'HEALTHY', reliabilityScore: 88.0, failureCount: 1 },
+      { id: aFan, name: 'CSE Lab Ceiling Fan', type: 'ELECTRICAL', locationId: lCseLabs, status: 'HEALTHY', reliabilityScore: 90.0, failureCount: 2, maintenanceCostEstimate: 50 },
+      { id: aAttnd, name: 'Block A Biometric', type: 'NETWORK', locationId: lBlockA, status: 'WARNING', reliabilityScore: 72.0, failureCount: 2 },
+      { id: 'c30000000000000000000007', name: 'Library Core Switch', type: 'NETWORK', locationId: lLibrary, status: 'HEALTHY', reliabilityScore: 95.0, failureCount: 0 },
+      { id: 'c30000000000000000000008', name: 'Hostel WiFi AP 1', type: 'NETWORK', locationId: lHostel, status: 'HEALTHY', reliabilityScore: 90.0, failureCount: 1 },
+      { id: 'c30000000000000000000009', name: 'Hostel WiFi AP 2', type: 'NETWORK', locationId: lHostel, status: 'HEALTHY', reliabilityScore: 92.0, failureCount: 0 },
+      { id: 'c30000000000000000000010', name: 'Hostel WiFi AP 3', type: 'NETWORK', locationId: lHostel, status: 'HEALTHY', reliabilityScore: 89.0, failureCount: 2 },
+      { id: 'c30000000000000000000011', name: 'Admin Block Switch', type: 'NETWORK', locationId: lAdminBlock, status: 'HEALTHY', reliabilityScore: 99.0, failureCount: 0 },
+      { id: 'c30000000000000000000012', name: 'Admin Block WiFi', type: 'NETWORK', locationId: lAdminBlock, status: 'HEALTHY', reliabilityScore: 96.0, failureCount: 0 },
+      { id: 'c30000000000000000000013', name: 'Admin Conf Room Display', type: 'AV', locationId: lAdminBlock, status: 'HEALTHY', reliabilityScore: 98.0, failureCount: 0 },
+      { id: 'c30000000000000000000014', name: 'Admin Reception Display', type: 'AV', locationId: lAdminBlock, status: 'HEALTHY', reliabilityScore: 98.0, failureCount: 0 },
+      { id: 'c30000000000000000000015', name: 'Library Info Kiosk 1', type: 'AV', locationId: lLibrary, status: 'HEALTHY', reliabilityScore: 85.0, failureCount: 3 },
+      { id: 'c30000000000000000000016', name: 'Library Info Kiosk 2', type: 'AV', locationId: lLibrary, status: 'HEALTHY', reliabilityScore: 88.0, failureCount: 1 },
+      { id: 'c30000000000000000000017', name: 'Library Seminar Projector', type: 'AV', locationId: lLibrary, status: 'HEALTHY', reliabilityScore: 90.0, failureCount: 2 },
+      { id: 'c30000000000000000000018', name: 'Sports Court Lighting', type: 'ELECTRICAL', locationId: lSports, status: 'HEALTHY', reliabilityScore: 92.0, failureCount: 0 },
+      { id: 'c30000000000000000000019', name: 'Canteen Main AC Unit', type: 'ELECTRICAL', locationId: lCanteen, status: 'HEALTHY', reliabilityScore: 82.0, failureCount: 4 },
+      { id: 'c30000000000000000000020', name: 'Canteen Walk-in Freezer', type: 'ELECTRICAL', locationId: lCanteen, status: 'HEALTHY', reliabilityScore: 95.0, failureCount: 0 },
+      { id: 'c30000000000000000000021', name: 'Security Main Gate Cam', type: 'NETWORK', locationId: lMainGate, status: 'HEALTHY', reliabilityScore: 94.0, failureCount: 1 },
+      { id: 'c30000000000000000000022', name: 'Mech Lab Smart Projector', type: 'AV', locationId: lMechLabs, status: 'HEALTHY', reliabilityScore: 87.0, failureCount: 2 },
+      { id: 'c30000000000000000000023', name: 'ECE Block Distribution Switch', type: 'NETWORK', locationId: lEceLabs, status: 'HEALTHY', reliabilityScore: 98.0, failureCount: 0 },
+      { id: 'c30000000000000000000024', name: 'Block C Secondary Switch', type: 'NETWORK', locationId: lBlockC, status: 'HEALTHY', reliabilityScore: 91.0, failureCount: 1 },
+      { id: 'c30000000000000000000025', name: 'Block C WiFi AP 1', type: 'NETWORK', locationId: lBlockC, status: 'HEALTHY', reliabilityScore: 86.0, failureCount: 3 },
+      { id: 'c30000000000000000000026', name: 'Hostel Block B Boiler', type: 'ELECTRICAL', locationId: lHostel, status: 'WARNING', reliabilityScore: 55.0, failureCount: 8, replacementRecommendation: true }
+    ]
   });
 
   console.log('Seeding Asset Dependencies...');
