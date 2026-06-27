@@ -12,9 +12,8 @@ export default function RippleImpact() {
       <div className="flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-            Ripple Impact Predictor
+            Impact Predictor
           </h2>
-          <p className="text-muted-foreground mt-1">AI forecasting of downstream service disruptions.</p>
         </div>
       </div>
 

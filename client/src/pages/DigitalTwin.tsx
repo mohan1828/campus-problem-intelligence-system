@@ -36,9 +36,8 @@ export default function DigitalTwin() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-            Campus Digital Twin
+            Campus Map
           </h2>
-          <p className="text-muted-foreground mt-1">Real-time geospatial health visualization and dependency mapping.</p>
         </div>
         <div className="flex gap-4">
           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></div><span className="text-sm">Healthy</span></div>
