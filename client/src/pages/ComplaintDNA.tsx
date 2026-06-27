@@ -30,9 +30,9 @@ export default function ComplaintDNA() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-            Complaint DNA & Preventive Memory
+            Root Cause Analysis
           </h2>
-          <p className="text-muted-foreground mt-1">Deep historical failure analysis and AI recommendation engine.</p>
+          
         </div>
       </div>
 
