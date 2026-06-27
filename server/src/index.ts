@@ -289,21 +289,22 @@ app.get('/api/analytics', async (req, res) => {
     // Calculates health using total assets, healthy assets, warning assets, and critical assets.
     // Deducts a dynamic penalty for active complaints to ensure the score accurately reflects the infrastructure state.
     const calculateHealth = (assetList: any[], activeComps: number) => {
-      if (assetList.length === 0) return 100; // Default to 100 if no assets exist
-      let actualScore = 0;
-      let maxScore = assetList.length * 100;
-      
-      assetList.forEach(a => {
-        if (a.status === 'HEALTHY') actualScore += 100;
-        else if (a.status === 'WARNING') actualScore += 50; // WARNING retains 50% health
-        // CRITICAL adds 0
-      });
+      if (assetList.length === 0) return 100;
 
-      // Gradually reduce score if there are active complaints
-      const complaintPenalty = activeComps * 2.5; 
-      const finalScore = Math.round((actualScore / maxScore) * 100) - complaintPenalty;
-      
-      return Math.max(0, Math.min(100, finalScore)); // Keep bounded between 0 and 100
+      const avgReliability =
+          assetList.reduce(
+              (sum, asset) => sum + (asset.reliabilityScore || 100),
+              0
+          ) / assetList.length;
+
+      const complaintPenalty = activeComps * 2;
+
+      return Math.max(
+          0,
+          Math.min(100,
+              Math.round(avgReliability - complaintPenalty)
+          )
+      );
     };
 
     const netActiveComps = complaints.filter(c => c.category === 'NETWORK' && (c.status === 'OPEN' || c.status === 'IN_PROGRESS')).length;
