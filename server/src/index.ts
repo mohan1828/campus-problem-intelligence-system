@@ -254,29 +254,106 @@ app.get('/api/assets/:id/dna', async (req, res) => {
 
 // Analytics
 app.get('/api/analytics', async (req, res) => {
-  const complaints = await prisma.complaint.findMany({ include: { user: true, asset: { include: { location: true } } } });
-  
-  const byCategory = complaints.reduce((acc: any, c) => {
-    acc[c.category] = (acc[c.category] || 0) + 1;
-    return acc;
-  }, {});
+  try {
+    // 1. Fetch base data for counts and aggregations
+    const assets = await prisma.asset.findMany();
+    const complaints = await prisma.complaint.findMany({ include: { user: true, asset: { include: { location: true } } } });
 
-  const byDepartment = complaints.reduce((acc: any, c) => {
-    const dept = c.user?.department || 'Unknown';
-    acc[dept] = (acc[dept] || 0) + 1;
-    return acc;
-  }, {});
+    // 2. Active Clusters: Count only ProblemCluster documents where status = ACTIVE
+    const activeClustersCount = await prisma.problemCluster.count({
+      where: { status: 'ACTIVE' }
+    });
 
-  const byStatus = complaints.reduce((acc: any, c) => {
-    acc[c.status] = (acc[c.status] || 0) + 1;
-    return acc;
-  }, {});
+    // 3. Critical Assets: Count only Asset documents where status is CRITICAL
+    const criticalAssetsCount = await prisma.asset.count({
+      where: { status: 'CRITICAL' }
+    });
 
-  res.json({
-    byCategory: Object.keys(byCategory).map(k => ({ name: k, value: byCategory[k] })),
-    byDepartment: Object.keys(byDepartment).map(k => ({ name: k, value: byDepartment[k] })),
-    byStatus: Object.keys(byStatus).map(k => ({ name: k, value: byStatus[k] }))
-  });
+    // 4. Active Complaints: Count only complaints whose status is OPEN or IN_PROGRESS
+    const activeComplaintsCount = await prisma.complaint.count({
+      where: { status: { in: ['OPEN', 'IN_PROGRESS'] } }
+    });
+
+    // Escalated and Resolved Today metrics
+    const escalatedCount = await prisma.complaint.count({
+      where: { escalationLevel: { not: 'NONE' }, status: { not: 'RESOLVED' } }
+    });
+    
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const resolvedTodayCount = await prisma.complaint.count({
+      where: { status: 'RESOLVED', resolvedAt: { gte: startOfDay } }
+    });
+
+    // 5. Campus Health Score Calculation
+    // Calculates health using total assets, healthy assets, warning assets, and critical assets.
+    // Deducts a dynamic penalty for active complaints to ensure the score accurately reflects the infrastructure state.
+    const calculateHealth = (assetList: any[], activeComps: number) => {
+      if (assetList.length === 0) return 100; // Default to 100 if no assets exist
+      let actualScore = 0;
+      let maxScore = assetList.length * 100;
+      
+      assetList.forEach(a => {
+        if (a.status === 'HEALTHY') actualScore += 100;
+        else if (a.status === 'WARNING') actualScore += 50; // WARNING retains 50% health
+        // CRITICAL adds 0
+      });
+
+      // Gradually reduce score if there are active complaints
+      const complaintPenalty = activeComps * 2.5; 
+      const finalScore = Math.round((actualScore / maxScore) * 100) - complaintPenalty;
+      
+      return Math.max(0, Math.min(100, finalScore)); // Keep bounded between 0 and 100
+    };
+
+    const netActiveComps = complaints.filter(c => c.category === 'NETWORK' && (c.status === 'OPEN' || c.status === 'IN_PROGRESS')).length;
+    const elecActiveComps = complaints.filter(c => c.category === 'ELECTRICAL' && (c.status === 'OPEN' || c.status === 'IN_PROGRESS')).length;
+    const avActiveComps = complaints.filter(c => c.category === 'AV' && (c.status === 'OPEN' || c.status === 'IN_PROGRESS')).length;
+
+    const overallHealth = calculateHealth(assets, activeComplaintsCount);
+    const netHealth = calculateHealth(assets.filter(a => a.type === 'NETWORK'), netActiveComps);
+    const elecHealth = calculateHealth(assets.filter(a => a.type === 'ELECTRICAL'), elecActiveComps);
+    const avHealth = calculateHealth(assets.filter(a => a.type === 'AV'), avActiveComps);
+
+    // 6. Chart & Breakdown Data
+    const byCategory = complaints.reduce((acc: any, c) => {
+      acc[c.category] = (acc[c.category] || 0) + 1;
+      return acc;
+    }, {});
+
+    const byDepartment = complaints.reduce((acc: any, c) => {
+      const dept = c.user?.department || 'Unknown';
+      acc[dept] = (acc[dept] || 0) + 1;
+      return acc;
+    }, {});
+
+    const byStatus = complaints.reduce((acc: any, c) => {
+      acc[c.status] = (acc[c.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      health: {
+        overall: overallHealth,
+        network: netHealth,
+        electrical: elecHealth,
+        av: avHealth
+      },
+      metrics: {
+        activeClusters: activeClustersCount,
+        criticalAssets: criticalAssetsCount,
+        activeComplaints: activeComplaintsCount,
+        resolvedToday: resolvedTodayCount,
+        escalated: escalatedCount
+      },
+      byCategory: Object.keys(byCategory).map(k => ({ name: k, value: byCategory[k] })),
+      byDepartment: Object.keys(byDepartment).map(k => ({ name: k, value: byDepartment[k] })),
+      byStatus: Object.keys(byStatus).map(k => ({ name: k, value: byStatus[k] }))
+    });
+  } catch (error) {
+    console.error('Analytics Error:', error);
+    res.status(500).json({ error: 'Failed to calculate analytics' });
+  }
 });
 
 app.listen(PORT, () => {

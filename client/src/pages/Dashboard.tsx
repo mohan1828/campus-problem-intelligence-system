@@ -4,46 +4,24 @@ import { Activity, AlertTriangle, CheckCircle, Network, ServerCrash, TrendingUp,
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
-  const { complaints, clusters, assets } = useStore();
+  const { complaints, clusters, assets, analytics } = useStore();
 
-  // Weighted Health Score Calculation
-  // Critical = 10, Medium = 5, Low = 1
-  const getWeight = (a: any) => {
-    const t = a.type;
-    const n = a.name.toLowerCase();
-    if (t === 'NETWORK' || t === 'SERVER' || n.includes('attendance') || n.includes('core')) return 10;
-    if (t === 'AV' || n.includes('projector') || n.includes('board') || n.includes('system')) return 5;
-    return 1;
-  };
+  // Retrieve dynamically calculated analytics from the backend
+  const health = analytics?.health || { overall: 100, network: 100, electrical: 100, av: 100 };
+  const metrics = analytics?.metrics || { activeClusters: 0, criticalAssets: 0, activeComplaints: 0, resolvedToday: 0, escalated: 0 };
 
-  const calculateHealth = (assetList: any[]) => {
-    if (assetList.length === 0) return 100;
-    let maxScore = 0;
-    let actualScore = 0;
-    
-    assetList.forEach(a => {
-      const weight = getWeight(a);
-      maxScore += weight;
-      if (a.status === 'HEALTHY') actualScore += weight;
-      else if (a.status === 'WARNING') actualScore += (weight * 0.5); // Warning retains half health
-      // Critical retains 0 health
-    });
+  const overallHealth = health.overall;
+  const netHealth = health.network;
+  const elecHealth = health.electrical;
+  const avHealth = health.av;
 
-    return Math.round((actualScore / maxScore) * 100);
-  };
+  const openComplaints = metrics.activeComplaints;
+  const resolvedToday = metrics.resolvedToday;
+  const criticalAssets = metrics.criticalAssets;
+  const activeClusters = metrics.activeClusters;
+  const escalatedCount = metrics.escalated;
 
-  const overallHealth = calculateHealth(assets);
-  const netHealth = calculateHealth(assets.filter(a => a.type === 'NETWORK'));
-  const elecHealth = calculateHealth(assets.filter(a => a.type === 'ELECTRICAL'));
-  const avHealth = calculateHealth(assets.filter(a => a.type === 'AV'));
-
-  // Metrics
-  const openComplaints = complaints.filter(c => c.status === 'OPEN').length;
-  const resolvedToday = complaints.filter(c => c.status === 'RESOLVED' && new Date(c.resolvedAt).toDateString() === new Date().toDateString()).length;
-  const criticalAssets = assets.filter(a => a.status === 'CRITICAL').length;
-  const activeClusters = clusters.filter(c => c.status === 'ACTIVE').length;
-  const escalatedCount = complaints.filter(c => c.escalationLevel !== 'NONE' && c.status !== 'RESOLVED').length;
-
+  // Chart data simulating today's complaint volume curve based on active complaints
   const mockChartData = [
     { time: '08:00', vol: 2 }, { time: '10:00', vol: 5 }, { time: '12:00', vol: 3 }, 
     { time: '14:00', vol: 8 }, { time: '16:00', vol: openComplaints }
@@ -202,10 +180,14 @@ export default function Dashboard() {
           <div className="bg-card border border-white/10 rounded-3xl shadow-xl p-6">
              <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Users size={20} className="text-orange-400"/> Predicted Impact Alerts</h3>
              {clusters.filter(c => c.status === 'ACTIVE').length > 0 ? (
-               <div className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-xl">
-                 <p className="text-xs text-orange-200 leading-relaxed font-medium">
-                   AI predicts that unresolved network issues in <span className="font-bold text-orange-400">Block A</span> will disrupt exams for <span className="font-bold text-orange-400">~450 Students</span> within the next 2 hours. Escalate to maintenance head immediately.
-                 </p>
+               <div className="space-y-3">
+                 {clusters.filter(c => c.status === 'ACTIVE').map(cluster => (
+                   <div key={cluster.id} className="bg-orange-500/10 border border-orange-500/20 p-4 rounded-xl">
+                     <p className="text-xs text-orange-200 leading-relaxed font-medium">
+                       AI predicts that unresolved <span className="font-bold text-orange-400">{cluster.rootCauseId}</span> issues will disrupt <span className="font-bold text-orange-400">~{cluster.affectedStudentsCount} Students</span> across <span className="font-bold text-orange-400">{cluster.affectedLocationsCount} Locations</span>. Risk level is <span className="font-bold text-red-400">{cluster.estimatedDisruptionLevel}</span>. Escalate to maintenance head immediately.
+                     </p>
+                   </div>
+                 ))}
                </div>
              ) : (
                <p className="text-sm text-muted-foreground">No active ripple impacts predicted.</p>
